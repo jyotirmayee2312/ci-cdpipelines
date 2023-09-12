@@ -18,9 +18,9 @@ jobs:
       run: npx htmlhint .
 
     - name: Copy files to artifact 
-        run: |
-         mkdir html-files
-         cp -r ./* html-files/
+      run: |
+          mkdir html-files
+          cp -r ./* html-files
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
