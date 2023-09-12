@@ -1,29 +1,50 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline 
 
 on:
   push:
     branches:
       - main
 
+env:
+  DATADOG_SITE: ${{ secrets.DATADOG_SITE }}
+  DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+
 jobs:
 
   build:
+
     runs-on: ubuntu-latest
+
     steps:
 
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Install Datadog agent
+      uses: DataDog/datadog-agent-github-action@master
+      with:
+        site: ${{ env.DATADOG_SITE }}
+        apiKey: ${{ env.DATADOG_API_KEY }}
+        hostname: github-runner
+        tags: env:github-actions,workflow:${{ github.workflow }}
+
     - name: Test HTML
-      run: npx htmlhint .
-
-    - name: Copy files to artifact 
       run: |
-       mkdir html-files
-       rsync -av --exclude html-files/ . html-files/
-       rm -r html-files/.git
+        npx htmlhint .
+        echo "Completed HTML linting"
 
-    - name: Upload artifact
+    - name: Send logs to Datadog  
+      uses: DataDog/datadog-action-step@main
+      with:
+        logs: 'Completed HTML linting'
+
+    - name: Copy files to artifact
+      run: |  
+        mkdir html-files
+        rsync -av --exclude html-files/ . html-files/
+        rm -r html-files/.git
+
+    - name: Upload artifact 
       uses: actions/upload-artifact@v2
       with:
         name: html-files
@@ -51,25 +72,25 @@ jobs:
       uses: actions/download-artifact@v2
       with:
         name: html-files
-        path: ./
+        path: ./  
 
     - name: Deploy to S3
-      run:  |
+      run: | 
         aws s3 sync . s3://${{ secrets.AWS_S3_BUCKET }} --delete
 
-    # Add a step to log deployment status
-    - name: Log deployment status
-      if: ${{ always() }}
+    - name: Log deployment time
       run: |
-        timestamp=$(date +%s)
-        status=$(echo $?)
+        start=$(date +%s)
 
-        echo "$timestamp|DEPLOYMENT|$status" >> deploy-log.txt
+        # deployment steps
 
-    # Add a step to upload the log file
-    - name: Upload deploy log
-      if: always()
-      uses: actions/upload-artifact@v2
+        end=$(date +%s)
+        duration=$((end-start)) 
+        echo "Deploy time: $duration seconds"
+
+    - name: Send deployment event to Datadog
+      uses: DataDog/datadog-action-step@main
       with:
-        name: deploy-log
-        path: deploy-log.txt
+        logs: Deployment completed in $duration seconds
+
+    # Other monitoring steps
