@@ -21,6 +21,7 @@ jobs:
       run: |
        mkdir html-files
        rsync -av --exclude html-files/ . html-files/
+       rm -r html-files/.git
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
