@@ -56,3 +56,20 @@ jobs:
     - name: Deploy to S3
       run:  |
         aws s3 sync . s3://${{ secrets.AWS_S3_BUCKET }} --delete
+
+    # Add a step to log deployment status
+    - name: Log deployment status
+      if: ${{ always() }}
+      run: |
+        timestamp=$(date +%s)
+        status=$(echo $?)
+
+        echo "$timestamp|DEPLOYMENT|$status" >> deploy-log.txt
+
+    # Add a step to upload the log file
+    - name: Upload deploy log
+      if: always()
+      uses: actions/upload-artifact@v2
+      with:
+        name: deploy-log
+        path: deploy-log.txt
