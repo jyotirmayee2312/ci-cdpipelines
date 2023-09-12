@@ -19,8 +19,8 @@ jobs:
 
     - name: Copy files to artifact 
       run: |
-       mkdir html-files 
-       cp -r ./* html-files/ --exclude html-files
+       mkdir html-files
+       rsync -av --exclude html-files/ . html-files/
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
