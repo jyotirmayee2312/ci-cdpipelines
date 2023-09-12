@@ -15,7 +15,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Test HTML
-      run: htmlproofer ./
+      run: npx htmlhint .
 
     - name: Copy files to artifact  
       run: cp -r ./ html-files
