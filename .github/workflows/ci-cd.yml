@@ -1,6 +1,6 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline 
 
-on: 
+on:
   push:
     branches:
       - main
@@ -22,7 +22,7 @@ jobs:
       run: npx htmlhint .
 
     - name: Send logs to CloudWatch
-      uses: aws-actions/amazon-cloudwatch-logs@v2
+      uses: aws-actions/cloudwatch-logs-action@v2
       with:
         log_group_name: /github-actions
         log_stream_name: html-lint
