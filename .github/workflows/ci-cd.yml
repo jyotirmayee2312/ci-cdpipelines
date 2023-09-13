@@ -1,13 +1,12 @@
-name: CI/CD Pipeline 
+name: CI/CD Pipeline
 
-on:
+on: 
   push:
     branches:
       - main
 
 env:
-  DATADOG_SITE: ${{ secrets.DATADOG_SITE }}
-  DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+  AWS_REGION: us-east-1
 
 jobs:
 
@@ -17,38 +16,17 @@ jobs:
 
     steps:
 
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Install Datadog agent
-      uses: DataDog/datadog-agent-github-action@master
-      with:
-        site: ${{ env.DATADOG_SITE }}
-        apiKey: ${{ env.DATADOG_API_KEY }}
-        hostname: github-runner
-        tags: env:github-actions,workflow:${{ github.workflow }}
+    - uses: actions/checkout@v2
 
     - name: Test HTML
-      run: |
-        npx htmlhint .
-        echo "Completed HTML linting"
+      run: npx htmlhint .
 
-    - name: Send logs to Datadog  
-      uses: DataDog/datadog-action-step@main
+    - name: Send logs to CloudWatch
+      uses: aws-actions/amazon-cloudwatch-logs@v2
       with:
-        logs: 'Completed HTML linting'
-
-    - name: Copy files to artifact
-      run: |  
-        mkdir html-files
-        rsync -av --exclude html-files/ . html-files/
-        rm -r html-files/.git
-
-    - name: Upload artifact 
-      uses: actions/upload-artifact@v2
-      with:
-        name: html-files
-        path: html-files
+        log_group_name: /github-actions
+        log_stream_name: html-lint
+        log_text: Completed HTML linting
 
   deploy:
 
@@ -58,39 +36,24 @@ jobs:
 
     steps:
 
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
+    - uses: aws-actions/configure-aws-credentials@v1
+      with: 
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
 
-    - name: Download artifact
-      uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v2
       with:
         name: html-files
-        path: ./  
 
     - name: Deploy to S3
-      run: | 
-        aws s3 sync . s3://${{ secrets.AWS_S3_BUCKET }} --delete
+      run: aws s3 sync . s3://${{ secrets.AWS_S3_BUCKET }} --delete
 
-    - name: Log deployment time
-      run: |
-        start=$(date +%s)
-
-        # deployment steps
-
-        end=$(date +%s)
-        duration=$((end-start)) 
-        echo "Deploy time: $duration seconds"
-
-    - name: Send deployment event to Datadog
-      uses: DataDog/datadog-action-step@main
+    - name: Send deployment time metric
+      uses: awact/cloudwatch-metric-action@v1
       with:
-        logs: Deployment completed in $duration seconds
-
-    # Other monitoring steps
+        metric-name: DeploymentTime
+        metric-value: ${{ steps.get_deploy_time.outputs.duration }}
+        metric-unit: Seconds
